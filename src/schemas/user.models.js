@@ -35,33 +35,55 @@ const userSchema = new mongoose.Schema(
         default: null,
         required: [true, "URL is required"]
       }
+    },
+    friends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ],
+    friendRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ],
+    isOnline: {
+      type: Boolean,
+      default: false
+    },
+    lastSeen: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }
 );
 
-userSchema.pre("save" , async function(next) {
-    if(!this.isModified("password")) {
-        return next();
-    }
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+userSchema.index({ name: 'text', email: 'text' });
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 })
 
-userSchema.methods.comparePassword = async function(password) {
-    return await bcrypt.compare(password, this.password)
+userSchema.methods.comparePassword = async function (password) {
+  return await bcrypt.compare(password, this.password)
 };
 
-userSchema.methods.getJwtToken = function() {
-    return jwt.sign({id: this._id}, process.env.JWT_SECRET_KEY, {
-        expiresIn: process.env.JWT_EXPIRE
-    });
+userSchema.methods.getJwtToken = function () {
+  return jwt.sign({ id: this._id }, process.env.JWT_SECRET_KEY, {
+    expiresIn: process.env.JWT_EXPIRE
+  });
 };
 
-userSchema.methods.getJWTrefreshToken = function() {
-    return jwt.sign({id: this._id}, process.env.JWT_REFRESH_SECRET_KEY, {
-        expiresIn: process.env.JWT_TOKEN_REFRESH_EXPIRE
-    });
+userSchema.methods.getJWTrefreshToken = function () {
+  return jwt.sign({ id: this._id }, process.env.JWT_REFRESH_SECRET_KEY, {
+    expiresIn: process.env.JWT_TOKEN_REFRESH_EXPIRE
+  });
 };
 
 export const User = mongoose.model("User", userSchema);

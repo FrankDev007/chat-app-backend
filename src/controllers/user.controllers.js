@@ -100,18 +100,29 @@ export const getUser = catchAsyncErrors(async (req, res, next) => {
 
 
 export const getAllUsers = catchAsyncErrors(async (req, res, next) => {
-    const currentUserId = req.user._id;
+  const currentUserId = req.user._id;
 
-    const users = await User.find({
-        _id: { $ne: currentUserId }
-    }).select("name email avatar").lean();
+  const currentUser = await User.findById(currentUserId).select("friends").lean();
+  if (!currentUser) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
 
-    res.status(200).json({
-        success: true,
-        users,
-        message: "Users fetched successfully"
-    });
+  // ✅ Fix is here: define friendIds safely
+  const friendIds = Array.isArray(currentUser.friends) ? currentUser.friends : [];
+
+  const users = await User.find({
+    _id: {
+      $nin: [currentUserId, ...friendIds],
+    },
+  }).select("name email avatar").lean();
+
+  res.status(200).json({
+    success: true,
+    users,
+    message: "Users fetched successfully",
+  });
 });
+
 
 export const findUsers = catchAsyncErrors(async (req, res, next) => {
     try {
@@ -123,9 +134,18 @@ export const findUsers = catchAsyncErrors(async (req, res, next) => {
             });
         }
         const currentUserId = req.user._id;
+        const currentUser = await User.findById(currentUserId).select("friends").lean();
+        if (!currentUser) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
         const users = await User.find(
             {
-                _id: { $ne: currentUserId },
+                _id: {
+                    $nin: [
+                        currentUserId,
+                        currentUser.friends,
+                    ]
+                },
                 $text: {
                     $search: query
                 }
@@ -144,14 +164,11 @@ export const findUsers = catchAsyncErrors(async (req, res, next) => {
         });
 
     } catch (error) {
-        return next(res.status(500).json({
+        console.error("FindUsers Error:", error);
+        return res.status(500).json({
             success: false,
             message: "Internal Server Error"
-        }));
-
+        });
     }
 });
 
-export const sendFriendRequest = catchAsyncErrors(async (req, res, next) => {
-    const targetUserId = req.params.id;
-});
